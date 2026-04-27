@@ -48,29 +48,56 @@ Requests are routed by `Host` header:
 | `amplify.perkinswill.com` | `https://localhost:9096` | |
 | `pmtk.hub365.dev` | `https://localhost:9007` | |
 
+## npm Scripts
+
+| Command | Description |
+|---|---|
+| `npm start` | Start proxy server |
+| `npm test` | Syntax-check all JS files |
+| `npm run hosts:list` | List active hosts in `/etc/hosts` |
+| `npm run hosts:status` | Status of all proxy hosts |
+| `npm run hosts:status:all` | Status of every known host |
+| `npm run hosts:enable` | Enable specific hosts (pass names after `--`) |
+| `npm run hosts:enable:all` | Enable all proxy hosts |
+| `npm run hosts:disable` | Disable specific hosts |
+| `npm run hosts:disable:all` | Disable all proxy hosts |
+| `npm run hosts:remove` | Remove specific hosts from `/etc/hosts` |
+| `npm run hosts:remove:all` | Remove all proxy hosts from `/etc/hosts` |
+
+> `enable` / `disable` / `remove` write to `/etc/hosts` — run with `sudo`.
+
 ## Hosts CLI
 
-Manage `/etc/hosts` entries for proxy domains.
+Install the `hosts` binary globally:
 
 ```bash
-# Show status of all proxy hosts
-npm run hosts:status
-
-# List all active hosts in /etc/hosts
-npm run hosts:list
-
-# Enable all proxy hosts (requires sudo)
-sudo npm run hosts:enable:all
-
-# Disable all proxy hosts
-sudo npm run hosts:disable:all
-
-# Enable specific hosts
-sudo npm run hosts -- enable perkinswill.hub365.dev ai.hub.perkinswill.com
-
-# Remove hosts from /etc/hosts
-sudo npm run hosts:remove:all
+npm link
 ```
+
+Then use it directly:
+
+```bash
+hosts list
+hosts status
+hosts status hub.perkinswill.com perkinswill.hub365.dev
+
+sudo hosts enable hub.perkinswill.com
+sudo hosts enable --all
+
+sudo hosts disable hub.perkinswill.com
+sudo hosts disable --all
+
+sudo hosts remove hub.perkinswill.com
+sudo hosts remove --all
+
+# Dry-run (print without writing)
+hosts enable --all --dry-run
+
+# Custom hosts file or IP
+sudo hosts enable hub.perkinswill.com --file /tmp/hosts --ip 192.168.1.10
+```
+
+Without `npm link`, use `npm run hosts -- <args>` instead.
 
 ### Options
 
