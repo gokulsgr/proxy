@@ -1,0 +1,32 @@
+{
+  "name": "proxy",
+  "version": "1.0.0",
+  "main": "index.js",
+  "bin": {
+    "hosts": "bin/hosts.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "hosts": "node bin/hosts.js",
+    "hosts:list": "node bin/hosts.js list",
+    "hosts:status": "node bin/hosts.js status",
+    "hosts:status:all": "node bin/hosts.js status --all",
+    "hosts:enable": "node bin/hosts.js enable",
+    "hosts:enable:all": "node bin/hosts.js enable --all",
+    "hosts:disable": "node bin/hosts.js disable",
+    "hosts:disable:all": "node bin/hosts.js disable --all",
+    "hosts:remove": "node bin/hosts.js remove",
+    "hosts:remove:all": "node bin/hosts.js remove --all",
+    "check": "node --check index.js && node --check bin/hosts.js",
+    "test": "npm run check"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "http-proxy": "^1.18.1"
+  }
+}
