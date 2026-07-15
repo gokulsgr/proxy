@@ -5,27 +5,78 @@ HTTPS reverse proxy that routes traffic to local services by hostname. Includes 
 ## Prerequisites
 
 - Node.js
-- SSL cert/key in `.ssl/` (default: `server.key`, `server.crt`)
+- `openssl` on your `PATH` (used by the cert generator; ships with macOS/Linux)
 
-## Setup
+## First-time setup
 
 ```bash
+# 1. Install dependencies
 npm install
+
+# 2. Create your own route table (hosts + ports)
+cp routes.config.example.js routes.config.js
+#    ...then edit routes.config.js for your hosts/ports
+
+# 3. Generate SSL certs (SANs are derived from your routes)
+npm run gen:ssl
+
+# 4. Point your hosts at 127.0.0.1
+sudo npm run hosts:enable:all
+
+# 5. Start the proxy
+sudo npm start
 ```
+
+> `sudo` is required to bind port 443 and to write `/etc/hosts`.
+
+## Routes config
+
+The route table lives in **`routes.config.js`** (gitignored — your own config).
+If it does not exist, `index.js` falls back to the committed
+`routes.config.example.js` template. Each route is matched by the request's
+`Host` header:
+
+```js
+const { target } = require('./proxy-helpers');
+
+module.exports = [
+    { hosts: ['app.example.dev'], target: target(3000) },
+    { hosts: ['api.example.dev'], target: target(8080, { protocol: 'http:' }) },
+    { hosts: ['ws.example.dev'],  target: target(5173), ws: true },
+];
+```
+
+See `routes.config.example.js` for the full documented template (`pathRoutes`,
+protocols, WebSockets).
+
+## SSL certificates
+
+`npm run gen:ssl` creates a local dev CA (`rootCA.pem` / `rootCA.key`) and a
+server certificate (`server.key` / `server.crt`) in `.ssl/`, signed by that CA.
+The certificate's SANs are taken from the hostnames in your route config, so it
+always matches what the proxy serves.
+
+```bash
+npm run gen:ssl              # generate (skips if certs already exist)
+npm run gen:ssl -- --force   # regenerate, overwriting existing files
+npm run gen:ssl -- --trust   # also add the CA to the OS trust store (sudo)
+```
+
+Until the CA is trusted, browsers will warn. Re-run with `--trust`, or follow
+the manual trust command the script prints for your OS.
 
 ## Configuration
 
-Copy `.env.example` or set environment variables:
+Set environment variables (or use a `.env` file):
 
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `443` | Listen port |
-| `SSL_KEY_FILE` | `server.key` | Key filename inside `.ssl/` |
-| `SSL_CERT_FILE` | `server.crt` | Cert filename inside `.ssl/` |
+| `SSL_DIR` | `.ssl` | Directory holding the cert/key |
+| `SSL_KEY_FILE` | `server.key` | Key filename inside `SSL_DIR` |
+| `SSL_CERT_FILE` | `server.crt` | Cert filename inside `SSL_DIR` |
 | `PROXY_TIMEOUT` | `30000` | Proxy timeout (ms) |
 | `CORS_ORIGIN` | `true` | CORS origin (`true` = reflect) |
-
-SSL files live in `.ssl/` relative to `index.js`.
 
 ## Start
 
@@ -33,26 +84,20 @@ SSL files live in `.ssl/` relative to `index.js`.
 sudo npm start
 ```
 
-> `sudo` required to bind port 443.
+> `sudo` required to bind port 443. If certs are missing the server exits with
+> a hint to run `npm run gen:ssl`.
 
 ## Routes
 
-Requests are routed by `Host` header:
-
-| Hosts | Target | Notes |
-|---|---|---|
-| `perkinswill.hub365.dev`, `perkinswill.hub365.cloud`, `dargroup.hub365.cloud`, `sidaraconnect.com`, `kindsnacks.fourjunctions.cloud`, `dargroup.hub365.dev`, `hub365.work` | `https://localhost:8089` | |
-| `connect.dargroup.com`, `plus.perkinswill.com` | `http://localhost:8083` | |
-| `hub.perkinswill.com` | `https://localhost:8080` | |
-| `perkinswill.fluentmind.dev`, `ai.hub.perkinswill.com`, `ai.sidaraconnect.com` | `https://localhost:5173` | WebSocket support |
-| `amplify.perkinswill.com` | `https://localhost:9096` | |
-| `pmtk.hub365.dev` | `https://localhost:9007` | |
+Requests are routed by their `Host` header. The active table is whatever is in
+your `routes.config.js` (see [Routes config](#routes-config) above).
 
 ## npm Scripts
 
 | Command | Description |
 |---|---|
 | `npm start` | Start proxy server |
+| `npm run gen:ssl` | Generate SSL CA + server cert into `.ssl/` |
 | `npm test` | Syntax-check all JS files |
 | `npm run hosts:list` | List active hosts in `/etc/hosts` |
 | `npm run hosts:status` | Status of all proxy hosts |

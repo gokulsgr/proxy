@@ -6,58 +6,50 @@ const path = require('path');
 const httpProxy = require('http-proxy');
 const express = require('express');
 const cors = require('cors');
+const { target } = require('./proxy-helpers');
 
 const DEFAULT_OPTIONS = {
     listenPort: Number(process.env.PORT || 443),
-    sslDir: path.join(__dirname, '.ssl'),
+    sslDir: process.env.SSL_DIR || path.join(__dirname, '.ssl'),
     sslKeyFile: process.env.SSL_KEY_FILE || 'server.key',
     sslCertFile: process.env.SSL_CERT_FILE || 'server.crt',
     proxyTimeout: Number(process.env.PROXY_TIMEOUT || 30000),
     corsOrigin: process.env.CORS_ORIGIN || true,
 };
 
-const ROUTES = [
-    {
-        hosts: [
-            'perkinswill.hub365.dev',
-            'perkinswill.hub365.cloud',
-            'dargroup.hub365.cloud',
-            'sidaraconnect.com',
-            'kindsnacks.fourjunctions.cloud',
-            'dargroup.hub365.dev',
-            'hub365.work',
-        ],
-        target: target(8089),
-    },
-    {
-        hosts: ['connect.dargroup.com', 'plus.perkinswill.com'],
-        target: target(8083, { protocol: 'http:' }),
-    },
-    {
-        hosts: ['hub.perkinswill.com'],
-        target: target(8080),
-    },
-    {
-        hosts: [
-            'perkinswill.fluentmind.dev',
-            'ai.hub.perkinswill.com',
-            'ai.sidaraconnect.com',
-        ],
-        target: target(5173),
-        ws: true,
-    },
-    {
-        hosts: ['amplify.perkinswill.com'],
-        target: target(9096),
-    },
-    {
-        hosts: ['pmtk.hub365.dev'],
-        target: target(9007),
-    },
-];
+// Load the per-user route table. Prefer the gitignored `routes.config.js`;
+// fall back to the committed `routes.config.example.js` template so a fresh
+// clone still boots.
+function loadRoutes() {
+    const userConfig = path.join(__dirname, 'routes.config.js');
+    const exampleConfig = path.join(__dirname, 'routes.config.example.js');
+    const configPath = fs.existsSync(userConfig) ? userConfig : exampleConfig;
 
-function target(port, { protocol = 'https:', host = 'localhost' } = {}) {
-    return { protocol, host, port: String(port) };
+    return require(configPath);
+}
+
+const ROUTES = loadRoutes();
+
+function normalizePrefix(prefix = '') {
+    const trimmed = String(prefix).replace(/^\/+|\/+$/g, '');
+    return trimmed ? `/${trimmed}` : '';
+}
+
+function matchPathRoute(pathProxies, url = '') {
+    const pathname = url.split('?')[0];
+    return pathProxies.find(({ prefix }) => (
+        prefix && (pathname === prefix || pathname.startsWith(`${prefix}/`))
+    ));
+}
+
+function stripPrefix(url, prefix) {
+    const rest = url.slice(prefix.length);
+
+    if (rest === '') {
+        return '/';
+    }
+
+    return rest.startsWith('?') ? `/${rest}` : rest;
 }
 
 function normalizeHost(hostHeader = '') {
@@ -112,11 +104,17 @@ function createRouter(routes, options) {
     const wsRoutes = new Set();
 
     routes.forEach((route) => {
-        const proxy = createProxy(route, options);
+        const proxy = route.target ? createProxy(route, options) : null;
+
+        const pathProxies = (route.pathRoutes || []).map((pathRoute) => ({
+            prefix: normalizePrefix(pathRoute.prefix),
+            stripPrefix: pathRoute.stripPrefix ?? false,
+            proxy: createProxy({ ...route, ...pathRoute }, options),
+        }));
 
         route.hosts.forEach((host) => {
             const normalizedHost = normalizeHost(host);
-            routeByHost.set(normalizedHost, { route, proxy });
+            routeByHost.set(normalizedHost, { route, proxy, pathProxies });
 
             if (route.ws) {
                 wsRoutes.add(normalizedHost);
@@ -130,6 +128,20 @@ function createRouter(routes, options) {
             const match = routeByHost.get(host);
 
             if (!match) {
+                return res.status(404).send('Not Supported!');
+            }
+
+            const pathMatch = matchPathRoute(match.pathProxies, req.url);
+
+            if (pathMatch) {
+                if (pathMatch.stripPrefix) {
+                    req.url = stripPrefix(req.url, pathMatch.prefix);
+                }
+
+                return pathMatch.proxy.web(req, res);
+            }
+
+            if (!match.proxy) {
                 return res.status(404).send('Not Supported!');
             }
 
@@ -151,10 +163,25 @@ function createRouter(routes, options) {
 }
 
 function readSslOptions(options) {
-    return {
-        key: fs.readFileSync(path.join(options.sslDir, options.sslKeyFile), 'utf8'),
-        cert: fs.readFileSync(path.join(options.sslDir, options.sslCertFile), 'utf8'),
-    };
+    const keyPath = path.join(options.sslDir, options.sslKeyFile);
+    const certPath = path.join(options.sslDir, options.sslCertFile);
+
+    try {
+        return {
+            key: fs.readFileSync(keyPath, 'utf8'),
+            cert: fs.readFileSync(certPath, 'utf8'),
+        };
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            throw new Error(
+                `SSL certificate not found in ${options.sslDir}.\n`
+                + `Expected "${options.sslKeyFile}" and "${options.sslCertFile}".\n`
+                + 'Generate them for first-time setup with:  npm run gen:ssl',
+            );
+        }
+
+        throw err;
+    }
 }
 
 function createApp(routes = ROUTES, options = DEFAULT_OPTIONS) {

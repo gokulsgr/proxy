@@ -7,6 +7,7 @@
   },
   "scripts": {
     "start": "node index.js",
+    "gen:ssl": "node bin/gen-ssl.js",
     "hosts": "node bin/hosts.js",
     "hosts:list": "node bin/hosts.js list",
     "hosts:status": "node bin/hosts.js status",
@@ -17,7 +18,7 @@
     "hosts:disable:all": "node bin/hosts.js disable --all",
     "hosts:remove": "node bin/hosts.js remove",
     "hosts:remove:all": "node bin/hosts.js remove --all",
-    "check": "node --check index.js && node --check bin/hosts.js",
+    "check": "node --check index.js && node --check bin/hosts.js && node --check bin/gen-ssl.js && node --check proxy-helpers.js && node --check routes.config.example.js",
     "test": "npm run check"
   },
   "author": "",

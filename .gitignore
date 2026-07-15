@@ -1,6 +1,9 @@
 node_modules/
 .ssl/
 
+# Per-user route table; committed template is routes.config.example.js
+routes.config.js
+
 .env
 .env.*
 !.env.example
