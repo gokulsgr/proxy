@@ -13,7 +13,8 @@
  *
  * Usage:
  *   npm run gen:ssl              Generate certs (skips if they already exist)
- *   npm run gen:ssl -- --force   Regenerate everything, overwriting existing files
+ *   npm run gen:ssl -- --force   Regenerate the server certificate, reusing the root CA
+ *   npm run gen:ssl -- --force-ca Also regenerate the root CA (requires re-trusting it)
  *   npm run gen:ssl -- --trust   Also add the CA to the OS trust store (needs sudo)
  *   npm run gen:ssl -- --help    Show help
  */
@@ -40,6 +41,7 @@ function parseArgs(argv) {
     return {
         help: false,
         force: flags.has('--force'),
+        forceCa: flags.has('--force-ca'),
         trust: flags.has('--trust'),
     };
 }
@@ -47,12 +49,14 @@ function parseArgs(argv) {
 function printHelp() {
     console.log(`Usage:
   npm run gen:ssl              Generate SSL certs (skips if they already exist)
-  npm run gen:ssl -- --force   Regenerate everything, overwriting existing files
+  npm run gen:ssl -- --force   Regenerate the server certificate, reusing the root CA
+  npm run gen:ssl -- --force-ca Also regenerate the root CA (requires re-trusting it)
   npm run gen:ssl -- --trust   Also add the CA to the OS trust store (needs sudo)
   npm run gen:ssl -- --help    Show this help
 
 SANs are taken from the hostnames in your route config, so the cert matches
-whatever the proxy serves.
+whatever the proxy serves. Add extras (for example a wildcard) with:
+  SSL_EXTRA_SANS='*.perkinswill.fluentmind.dev' npm run gen:ssl -- --force
 `);
 }
 
@@ -74,6 +78,14 @@ function collectHostnames(routes) {
             hosts.add(String(host).toLowerCase().split(':')[0]);
         });
     });
+
+    // A wildcard SAN here lets a new worktree host work without regenerating the
+    // certificate; route hosts alone would need a regen per added subdomain.
+    String(process.env.SSL_EXTRA_SANS || '')
+        .split(',')
+        .map((host) => host.trim().toLowerCase())
+        .filter(Boolean)
+        .forEach((host) => hosts.add(host));
 
     return Array.from(hosts).sort();
 }
@@ -256,7 +268,9 @@ function main() {
     try {
         const caExists = fs.existsSync(paths.caKey) && fs.existsSync(paths.caCert);
 
-        if (!caExists || args.force) {
+        // Regenerating the CA invalidates the OS trust store entry, so --force
+        // rotates only the leaf. Replacing the CA needs the explicit --force-ca.
+        if (!caExists || args.forceCa) {
             generateCa(paths);
         } else {
             console.log('• Reusing existing root CA.');
