@@ -43,9 +43,12 @@ module.exports = [
     // cookie is scoped to the tenant domain, so only a host under that domain is
     // authenticated. Keep ws: true or Vite HMR breaks behind the proxy.
     //
-    // Provision every slot up front and enable all of them in /etc/hosts once
-    // (sudo npm run hosts:enable:all). Adding a worktree then needs no sudo and no
-    // proxy restart -- point its .env at a free slot and start the dev server.
+    // Provision every slot up front and enable the slot hosts in /etc/hosts once:
+    //   sudo npm run hosts -- enable wt1.app.example.dev wt2.app.example.dev ...
+    // Name the slots explicitly. hosts:enable:all points EVERY host in this table at
+    // 127.0.0.1, including any real API or production hostname you proxy.
+    // Adding a worktree then needs no sudo and no proxy restart -- point its .env at a
+    // free slot and start the dev server.
     {
         hosts: ['wt1.app.example.dev'],
         target: target(5176),
