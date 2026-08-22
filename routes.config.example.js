@@ -42,6 +42,10 @@ module.exports = [
     // its own port: the app derives its API host from window.location, and the auth
     // cookie is scoped to the tenant domain, so only a host under that domain is
     // authenticated. Keep ws: true or Vite HMR breaks behind the proxy.
+    //
+    // Provision every slot up front and enable all of them in /etc/hosts once
+    // (sudo npm run hosts:enable:all). Adding a worktree then needs no sudo and no
+    // proxy restart -- point its .env at a free slot and start the dev server.
     {
         hosts: ['wt1.app.example.dev'],
         target: target(5176),
@@ -50,6 +54,21 @@ module.exports = [
     {
         hosts: ['wt2.app.example.dev'],
         target: target(5177),
+        ws: true,
+    },
+    {
+        hosts: ['wt3.app.example.dev'],
+        target: target(5178),
+        ws: true,
+    },
+    {
+        hosts: ['wt4.app.example.dev'],
+        target: target(5179),
+        ws: true,
+    },
+    {
+        hosts: ['wt5.app.example.dev'],
+        target: target(5180),
         ws: true,
     },
 ];
