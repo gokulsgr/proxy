@@ -87,6 +87,35 @@ sudo npm start
 > `sudo` required to bind port 443. If certs are missing the server exits with
 > a hint to run `npm run gen:ssl`.
 
+### Run it in the background
+
+`bin/proxy` keeps the server running after you close the terminal, without a
+process manager. Install it once as a global `proxy` command:
+
+```bash
+mkdir -p ~/.local/bin
+ln -sf "$(pwd)/bin/proxy" ~/.local/bin/proxy   # make sure ~/.local/bin is on your PATH
+```
+
+```bash
+proxy start      # start in the background
+proxy status     # pid + what is listening on the port
+proxy logs       # follow the log
+proxy restart
+proxy stop
+```
+
+PID and log live in `$TMPDIR` (or `/tmp`), named after the checkout directory,
+so parallel clones do not clash. Without the symlink, run it as `./bin/proxy
+start` or `npm run proxy -- start`.
+
+> On Linux (and any host where non-root cannot bind 443) prefix it with `sudo`,
+> or set `PORT` to something above 1024.
+>
+> Do **not** install this as a root launchd daemon on macOS if the checkout is
+> under `~/Desktop`, `~/Documents`, or `~/Downloads` — macOS privacy protection
+> blocks root from reading those, and the service crash-loops with `EPERM`.
+
 ## Routes
 
 Requests are routed by their `Host` header. The active table is whatever is in
@@ -96,7 +125,8 @@ your `routes.config.js` (see [Routes config](#routes-config) above).
 
 | Command | Description |
 |---|---|
-| `npm start` | Start proxy server |
+| `npm start` | Start proxy server (foreground) |
+| `npm run proxy -- start` | Start/stop/restart/status/logs in the background |
 | `npm run gen:ssl` | Generate SSL CA + server cert into `.ssl/` |
 | `npm test` | Syntax-check all JS files |
 | `npm run hosts:list` | List active hosts in `/etc/hosts` |

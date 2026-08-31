@@ -1,0 +1,68 @@
+#!/bin/sh
+# Run the proxy in the background. Usage: proxy {start|stop|restart|status|logs}
+# Install: ln -sf "$(pwd)/bin/proxy" ~/.local/bin/proxy
+
+set -e
+
+SELF=$0
+while [ -L "$SELF" ]; do SELF=$(readlink "$SELF"); done
+DIR=$(cd "$(dirname "$SELF")/.." && pwd)
+
+SLUG=$(basename "$DIR")
+PIDFILE="${TMPDIR:-/tmp}/proxy-$SLUG.pid"
+LOGFILE="${TMPDIR:-/tmp}/proxy-$SLUG.log"
+PORT=${PORT:-443}
+
+alive() {
+    [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null
+}
+
+listeners() {
+    lsof -nP -iTCP:"$PORT" -sTCP:LISTEN 2>/dev/null | tail -n +2 || true
+}
+
+case "${1:-status}" in
+start)
+    if alive; then
+        echo "already running (pid $(cat "$PIDFILE"))"
+        exit 0
+    fi
+    cd "$DIR"
+    nohup node index.js >>"$LOGFILE" 2>&1 &
+    echo $! >"$PIDFILE"
+    sleep 1
+    if alive; then
+        echo "started (pid $(cat "$PIDFILE")) - logs: proxy logs"
+    else
+        rm -f "$PIDFILE"
+        echo "failed to start:" >&2
+        tail -20 "$LOGFILE" >&2
+        exit 1
+    fi
+    ;;
+stop)
+    if alive; then
+        kill "$(cat "$PIDFILE")"
+        echo "stopped"
+    else
+        echo "not running"
+    fi
+    rm -f "$PIDFILE"
+    ;;
+restart)
+    "$SELF" stop
+    sleep 1
+    "$SELF" start
+    ;;
+status)
+    if alive; then echo "running (pid $(cat "$PIDFILE"))"; else echo "not running"; fi
+    listeners
+    ;;
+logs)
+    tail -f "$LOGFILE"
+    ;;
+*)
+    echo "usage: proxy {start|stop|restart|status|logs}" >&2
+    exit 1
+    ;;
+esac
