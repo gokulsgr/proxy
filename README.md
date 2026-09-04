@@ -23,7 +23,10 @@ npm run gen:ssl
 # 4. Point your hosts at 127.0.0.1
 sudo npm run hosts:enable:all
 
-# 5. Start the proxy
+# 5. Install the global `proxy` / `hosts` commands
+npm link
+
+# 6. Start the proxy
 sudo npm start
 ```
 
@@ -93,8 +96,7 @@ sudo npm start
 process manager. Install it once as a global `proxy` command:
 
 ```bash
-mkdir -p ~/.local/bin
-ln -sf "$(pwd)/bin/proxy" ~/.local/bin/proxy   # make sure ~/.local/bin is on your PATH
+npm link          # from the checkout; installs global `proxy` and `hosts`
 ```
 
 ```bash
@@ -106,7 +108,7 @@ proxy stop
 ```
 
 PID and log live in `$TMPDIR` (or `/tmp`), named after the checkout directory,
-so parallel clones do not clash. Without the symlink, run it as `./bin/proxy
+so parallel clones do not clash. Without `npm link`, run it as `./bin/proxy
 start` or `npm run proxy -- start`.
 
 > On Linux (and any host where non-root cannot bind 443) prefix it with `sudo`,

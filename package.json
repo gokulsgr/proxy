@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "bin": {
-    "hosts": "bin/hosts.js"
+    "hosts": "bin/hosts.js",
+    "proxy": "bin/proxy"
   },
   "scripts": {
     "start": "node index.js",
